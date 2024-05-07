@@ -1,0 +1,51 @@
+#cross-sectional association
+library(nortest)
+library(car)
+brainfunction$function<-bcPower((brainfunction$function), powerTransform(brainfunction$function)$roundlam)
+brainfunction$function<-scale(brainfunction$function)
+F=lm(function~ as.factor(headache)+scale(log10(age))+sex+ethn+Qaulification+Socioeconomic+scale(log10(bmi))+Smoking+Alcohol, data=brainfunction)
+summary(F)
+
+#longitudinal association
+fit <- coxph(Surv(braindisorder$days,braindisorder$status)~as.factor(headache)+scale(log10(age))+sex+ethn+Qaulification+Socioeconomic+scale(log10(bmi))+Smoking+Alcohol,data=braindisorder)
+summary(fit)
+
+###MR analysis
+library(data.table)
+library(devtools)
+library(TwoSampleMR)
+library(MRInstruments)
+exposure6 <- format_data(exposure6, type='exposure', chr_col = '#chrom', pos_col = 'pos', snp_col = "rsids", beta_col = "beta", 
+se_col = "sebeta", effect_allele_col ="alt", other_allele_col = "ref", eaf_col = "af_alt", pval_col = "pval")
+exposure6<- clump_data(exposure6)
+
+outcome_data<-subset(outcome_data,outcome_data$SNP %in% exposure6$SNP)
+outcome_data<-format_data(outcome_data, type="outcome",snp_col="SNP", effect_allele_col="A1",other_allele_col="A2",
+                                beta_col="BETA",se_col="beta_se",pval_col = "P",samplesize_col = "N")
+dat5e6 <- harmonise_data(exposure_dat = exposure6, outcome_dat = outcome_data)
+results5e6 <- mr(dat5e6)
+results_OR5e6 <- generate_odds_ratios(results5e6)
+dat.mr_heterogeneity5e6 <- mr_heterogeneity(dat5e6)
+dat.mr_pleiotropy_test5e6 <- mr_pleiotropy_test(dat5e6)
+results5e6 <- results5e6[-4,]
+scatter_plot5e6<- mr_scatter_plot(results5e6, dat5e6)
+
+#SEM
+HS.model<-"
+         Migraine=~1*migraine
+         PRSL=~1*Pt_5e.06
+         PeripheralL=~1*X30130_0.0Z+X30020_0.0Z+X30750_0.0Z+X30610_0.0Z+X30030_0.0Z+X30160_0.0Z
+         Metamolic=~1*X23427log+X23436log+X23437log+X23450log
+         status=~1*Anxiety_status+MDD_status+Sleep_status+Stroke_status+Epilepsy_status
+         
+         status~Migraine+PRSL+PeripheralL+Metamolic
+         Migraine~PRSL
+         PeripheralL~PRSL+Migraine
+         Metamolic~PRSL+Migraine
+         
+         PeripheralL~~Metamolic
+         "
+cfa_fit<-cfa(HS.model,SEM)
+summary(cfa_fit,standardized=TRUE)
+fitmeasures(cfa_fit,fit.measures='all',baseline.model = NULL)
+fitMeasures(cfa_fit,c("chisq","df","pvalue","gfi","cfi","rmr","srmr","rmsea"))
